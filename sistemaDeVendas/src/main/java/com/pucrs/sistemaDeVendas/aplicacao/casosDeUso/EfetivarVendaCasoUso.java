@@ -26,13 +26,14 @@ public class EfetivarVendaCasoUso {
 	private ServicoDeProduto servicoDeProduto;
 	private HttpClient client;
 	private String BASE_URL = "http://host.docker.internal:8080/vendas";
-	@Autowired
     private RabbitTemplate rabbitTemplate;
 
 	@Autowired
-	public EfetivarVendaCasoUso(ServicoDeProduto servicoDeProduto){
+	public EfetivarVendaCasoUso(ServicoDeProduto servicoDeProduto, RabbitTemplate rabbitTemplate){
 		this.servicoDeProduto = servicoDeProduto;
 		client = HttpClient.newHttpClient();
+		this.rabbitTemplate = rabbitTemplate;
+		rabbitTemplate.start();
 	}
 
 	public void run(List<ItemCarrinhoDTO> itens){
@@ -50,21 +51,26 @@ public class EfetivarVendaCasoUso {
 		}
 		if(!rollback){
 			Venda venda = new Venda(listaItens);
+			System.out.println("-------- Enviando venda ----------");
 			registrarVenda(venda);
 		} else {
+			System.out.println("--------- Um dos itens nao estava dispovinel, executando rollback -----------");
 			rollback(itens);
 		}
 	}
 
 	private void registrarVenda(Venda venda){
 		String gsonObject = new Gson().toJson(venda);
+		System.out.println(gsonObject);
+		
 		rabbitTemplate.convertAndSend("spring-boot-exchange", "vendas.nova", gsonObject);
+		System.out.println("-------- Venda enviada -----------");
 	}
 
 	private boolean buscarItem(long codProd, int quantidade){
 		client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create("http://" + BASE_URL + "/vendas/autorizacao?codProd=" + codProd + "&qtdade=" + quantidade))
+            .uri(URI.create(BASE_URL + "/autorizacao?codProd=" + codProd + "&qtdade=" + quantidade))
             .build();
         HttpResponse<String> response = null;
         try {
@@ -72,7 +78,6 @@ public class EfetivarVendaCasoUso {
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
-		System.out.println(response.body());
 		if(response.body().equals("true")){
 			return true;
 		} else {
@@ -83,7 +88,7 @@ public class EfetivarVendaCasoUso {
 	private boolean baixaItem(long codProd, int quantidade){
 		client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create("http://" + BASE_URL + "/vendas/baixa?codProd=" + codProd + "&qtdade=" + quantidade))
+            .uri(URI.create(BASE_URL + "/baixa?codProd=" + codProd + "&qtdade=" + quantidade))
             .build();
         HttpResponse<String> response = null;
         try {

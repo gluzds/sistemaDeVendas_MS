@@ -53,7 +53,7 @@ public class Controller {
 	  return selecionarProdutoCasoUso.run(codProd, qtdade);
 	}
 
-	@PostMapping("/baixa")
+	@GetMapping("/baixa")
 	@CrossOrigin(origins = "*", allowedHeaders = "*")
 	public boolean baixa(@RequestParam final Long codProd,
 							  @RequestParam final Integer qtdade) {
